@@ -11,14 +11,15 @@ from wallflower_schema import WallflowerSchema
 import json
 import copy
 
-class WallflowerPacket:
+class WallflowerPacketBase:
     
     raw_packet = None
     packet = None
     validated_packet = None
-    message_packet = None
+    schema_packet = None
     request_list = []
     request_type = None
+    request_level = None
     
     c_type_info = {
         'b' : {
@@ -95,17 +96,126 @@ class WallflowerPacket:
             return self.c_type_info[WallflowerSchema().data_type_list[data_type]]['python_type']
         return int
         
+        
+class WallflowerPacket(WallflowerPacketBase):
+
     '''
     Load packet. Return False if error or packet does not contain request.
-    Allow partially-valid request (invalid requests will be removed, if possible) 
     '''
-    def loadRequest(self,packet,request_type):
+    def loadRequest(self,packet,request_type,request_level):
         try:
             # Store paclet
             self.packet = packet
-            # Validate packet contents
-            self.validated_packet, self.message_packet = WallflowerSchema().validateRequest(self.packet,request_type,True)
             self.request_type = request_type
+            self.request_level = request_level
+            
+            if request_level == 'network':
+                # Validate packet contents
+                self.validated_packet, self.schema_packet = \
+                    WallflowerSchema().validateNetworkRequest(self.packet,request_type)
+                return self.schema_packet['network-valid-request']
+            elif request_level == 'object':
+                # Validate packet contents
+                self.validated_packet, self.schema_packet = \
+                    WallflowerSchema().validateObjectRequest(self.packet,request_type)
+                return self.schema_packet['object-valid-request']
+            elif request_level == 'stream':
+                # Validate packet contents
+                self.validated_packet, self.schema_packet = \
+                    WallflowerSchema().validateStreamRequest(self.packet,request_type)
+                return self.schema_packet['stream-valid-request']
+            elif request_level == 'points':
+                # Validate packet contents
+                self.validated_packet, self.schema_packet = \
+                    WallflowerSchema().validatePointsRequest(self.packet,request_type)
+                return self.schema_packet['points-valid-request']
+            else:
+                return False
+        except:
+            return False
+    
+    '''
+    Load network packet. Return False if error or packet does not contain request.
+    '''
+    def loadNetworkRequest(self,packet,request_type):
+        return self.loadRequest(packet,request_type,'network')
+
+    '''
+    Load object packet. Return False if error or packet does not contain request.
+    '''
+    def loadObjectRequest(self,packet,request_type):
+        return self.loadRequest(packet,request_type,'object')
+        
+    '''
+    Load stream packet. Return False if error or packet does not contain request.
+    '''
+    def loadStreamRequest(self,packet,request_type):
+        return self.loadRequest(packet,request_type,'stream')
+        
+    '''
+    Load points packet. Return False if error or packet does not contain request.
+    '''
+    def loadPointsRequest(self,packet,request_type):
+        return self.loadRequest(packet,request_type,'points')
+        
+    '''
+    Check if the packet contains a valid request. 
+    '''
+    def hasRequest(self,request_level):
+        if request_level+'valid-request' in self.schema_packet and \
+            self.schema_packet[request_level+'valid-request']:
+            return True
+        else:
+            return False
+
+    '''
+    Check if the packet contains a valid network request. 
+    '''
+    def hasNetworkRequest(self):
+        return self.hasRequest('network')
+            
+    '''
+    Check if the packet contains a valid object request. 
+    '''
+    def hasObjectRequest(self):
+        return self.hasRequest('object')
+
+    '''
+    Check if the packet contains a valid stream request. 
+    '''
+    def hasStreamRequest(self):
+        return self.hasRequest('stream')
+            
+    '''
+    Check if the packet contains a valid points request. 
+    '''
+    def hasPointsRequest(self):
+        return self.hasRequest('points')
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+class WallflowerMultiplePackets(WallflowerPacketBase):
+    
+    '''
+    Load packet(s). Return False if error or packet does not contain request.
+    Allow partially-valid request (invalid requests will be removed, if possible) 
+    '''
+    def loadRequests(self,packet,request_type):
+        try:
+            # Store paclet
+            self.packet = packet
+            self.request_type = request_type
+            self.request_level = None
+            
+            # Validate packet contents
+            self.validated_packet, self.schema_packet = WallflowerSchema().validateMultipleRequests(self.packet,request_type,True)
             
             return True
         except:
@@ -115,6 +225,7 @@ class WallflowerPacket:
     Load packet. Return False if error or packet does not contain request.
     Allow partially-valid request (invalid requests will be removed, if possible) 
     '''
+    """
     def loadJSONRequest(self,json_packet,request_type):
         try:
             # Store paclet
@@ -123,12 +234,13 @@ class WallflowerPacket:
             return self.loadRequest(packet,request_type)
         except:
             return False
-
+    """
+    
     '''
-    Check if packet contains valid request
+    Check if packet contains valid request. Only for multiple request packets.
     '''
     def hasAnyRequest(self):
-        if 'valid-request' in self.message_packet and self.message_packet['valid-request']:
+        if 'valid-request' in self.schema_packet and self.schema_packet['valid-request']:
             return True
         else:
             return False
