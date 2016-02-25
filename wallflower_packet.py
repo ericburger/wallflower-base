@@ -100,7 +100,7 @@ class WallflowerPacketBase:
 class WallflowerPacket(WallflowerPacketBase):
 
     '''
-    Load packet. Return False if error or packet does not contain request.
+    Load single request packet. Return False if there is an error.
     '''
     def loadRequest(self,packet,request_type,request_level):
         try:
@@ -162,11 +162,11 @@ class WallflowerPacket(WallflowerPacketBase):
     Check if the packet contains a valid request. 
     '''
     def hasRequest(self,request_level):
-        if request_level+'valid-request' in self.schema_packet and \
-            self.schema_packet[request_level+'valid-request']:
-            return True
+        if request_level+'-valid-request' in self.schema_packet and \
+            self.schema_packet[request_level+'-valid-request']:
+            return True, self.validated_packet
         else:
-            return False
+            return False, self.schema_packet
 
     '''
     Check if the packet contains a valid network request. 
