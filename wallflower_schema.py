@@ -14,7 +14,7 @@ class SchemaError(Exception):
 
     """Error during Schema validation."""
 
-    def __init__(self, autos, errors):
+    def __init__(self, autos, errors, details={}):
         self.autos = autos if type(autos) is list else [autos]
         self.errors = errors if type(errors) is list else [errors]
         Exception.__init__(self, self.code)
@@ -104,6 +104,8 @@ class Use(object):
 
 def priority(s):
     """Return priority for a give object."""
+    if hasattr(s, '_priority') and isinstance( s._priority, int ):
+        return s._priority
     if type(s) in (list, tuple, set, frozenset):
         return 6
     if type(s) is dict:
@@ -120,10 +122,11 @@ def priority(s):
 
 class Schema(object):
 
-    def __init__(self, schema, error=None):
+    def __init__(self, schema, error=None, priority=None ):
         self._schema = schema
         self._error = error
-
+        self._priority = priority
+        
     def __repr__(self):
         return '%s(%r)' % (self.__class__.__name__, self._schema)
 
@@ -135,11 +138,13 @@ class Schema(object):
             return type(s)(Or(*s, error=e).validate(d) for d in data)
         if type(s) is dict:
             data = Schema(dict, error=e).validate(data)
+            
             new = type(data)()  # new - is a dict of the validated values
             x = None
             coverage = set()  # non-optional schema keys that were matched
             # for each key and value find a schema entry matching them, if any
             sorted_skeys = list(sorted(s, key=priority))
+            
             for key, value in data.items():
                 valid = False
                 skey = None
@@ -230,9 +235,8 @@ class Alphanumeric(Base):
         non_alphanumeric = list(set(re.findall( "[^a-zA-Z0-9]", data)))
         if len(non_alphanumeric) > 0:
             chars = ', '.join(non_alphanumeric)
-            raise SchemaError('The string must be alphanumeric '+ \
-            'and is not permitted to contain the '+ \
-            'character(s) %s' % (chars), self._error)
+            raise SchemaError('Not permitted to contain the '+ \
+            'character(s) %s' % (chars), self._error )
         return data
       
 class AlphanumericWithExceptions(Base):
@@ -250,8 +254,8 @@ class AlphanumericWithExceptions(Base):
                     not_permitted.append(char)
             if len(not_permitted) > 0:
                 chars = ', '.join(not_permitted)
-                raise SchemaError('The string is not permitted to contain the '+\
-                'character(s) %s' % (chars), self._error)
+                raise SchemaError('Not permitted to contain the '+\
+                'character(s) %s' % (chars), self._error )
         return data
         
 class CheckRegularExpression(Base):
@@ -265,8 +269,8 @@ class CheckRegularExpression(Base):
         if set(filtered_string) != set(data):
             not_permitted = [x for x in set(data) if x not in set(filtered_string)]
             chars = ', '.join(not_permitted)
-            raise SchemaError('The string is not permitted to contain '+\
-            'the character(s) %s' % (chars), self._error)
+            raise SchemaError('Not permitted to contain '+\
+            'the character(s) %s' % (chars), self._error )
         return data
 
 
@@ -426,13 +430,15 @@ class WallflowerSchema():
     
     network_details_create = Schema({  
         'network-name': basestring,
-        Optional(basestring): object
+        Optional(basestring,priority=5): object
     }, error = 'Invalid network details')
     
     network_create = Schema({    
         'network-id': And(
             basestring,
-            AlphanumericWithExceptions(id_chars)
+            AlphanumericWithExceptions(
+                id_chars, error="Invalid network-id"
+            )
         ),
         'network-details': network_details_create,
         Optional('objects'): {
@@ -442,13 +448,15 @@ class WallflowerSchema():
 
     object_details_create = Schema({  
         'object-name': basestring,
-        Optional(basestring): object
+        Optional(basestring,priority=5): object
     }, error = 'Invalid object details')
     
     object_create = Schema({   
         'object-id': And(
             basestring,
-            AlphanumericWithExceptions(id_chars)
+            AlphanumericWithExceptions(
+                id_chars, error="Invalid object-id"
+            )
         ),
         'object-details': object_details_create,
         Optional('streams'): {
@@ -472,20 +480,22 @@ class WallflowerSchema():
         'stream-name': basestring,
         'stream-type': stream_type,
         Optional('units'): basestring,
-        Optional(basestring): object
+        Optional(basestring,priority=5): object
     }, error = 'Invalid stream details')
 
     points_details_create = Schema({
         'points-type': data_type,
         'points-length': int,
-        Optional(basestring): object
+        Optional(basestring,priority=5): object
     }, error = 'Invalid points details')
     
     # TODO: Make points_details optional
     stream_create = Schema(RemoveAll({ 
         'stream-id': And(
             basestring,
-            AlphanumericWithExceptions(id_chars)
+            AlphanumericWithExceptions(
+                id_chars, error="Invalid stream-id"
+            )
         ),
         'stream-details': stream_details_create,
         'points-details': points_details_create,
@@ -562,7 +572,7 @@ class WallflowerSchema():
     
     network_details_update = Schema({  
         Optional('network-name'): basestring,
-        Optional(basestring): object
+        Optional(basestring,priority=5): object
     }, error = 'Invalid network details update')
     
     network_update = Schema({    
@@ -575,7 +585,7 @@ class WallflowerSchema():
 
     object_details_update = Schema({  
         Optional('object-name'): basestring,
-        Optional(basestring): object
+        Optional(basestring,priority=5): object
     }, error = 'Invalid object details update')
     
     object_update = Schema({   
@@ -588,9 +598,9 @@ class WallflowerSchema():
             
     stream_details_update = Schema({
         Optional('stream-name'): basestring,
-        Optional('stream-type'): basestring,
+        Optional('stream-type'): stream_type,
         Optional('units'): basestring,
-        Optional(basestring): object
+        Optional(basestring,priority=5): object
     }, error = 'Invalid stream details update')
     
     stream_update = Schema(RemoveAll({ 
@@ -765,14 +775,16 @@ class WallflowerSchema():
         'points-search': points_search
     }
     
-    '''
+    
     # Try to validate the points request
-    def validatePointsRequest(self,request,request_type):
-        message = None
+    def validatePointsRequest(self,request,request_type,points_details=None):
+        message_packet = None
         validated_request = None
         # Check points
-        if 'points' in request and 'points-'+request_type in self.schemas_dict:
-            message = {}
+        # TODO: Should request just be list of points?
+        if 'points-'+request_type in self.schemas_dict:
+            
+            message_packet = {}
             validated_request = {}
             
             try:
@@ -781,39 +793,154 @@ class WallflowerSchema():
                     self.schemas_dict['points-'+request_type].validate(
                         request['points']
                     )
-                                                                
-                message['points-schema-message'] = 'Points '+request_type+' request found'
-                message['points-valid-request'] = True                                                
+                
+                # TODO: Check points-type
+                
+                message_packet['points-schema-message'] = 'Valid points '+request_type+' request found'
+                message_packet['points-valid-request'] = True                                           
+                message_packet['points-code'] = 200 
+                
+            except SchemaError as e:
+                # Points level error.
+                message_packet['points-schema-error'] = e.get_last_error()
+                message_packet['points-valid-request'] = False
+                message_packet['points-code'] = 400
+        else:
+            message_packet = {}
+            message_packet['points-schema-error'] = 'Invalid Points Request'
+            message_packet['points-valid-request'] = False
+            message_packet['points-code'] = 400
+            
+        return validated_request, message_packet
+    
+    # Try to validate the stream request
+    def validateStreamRequest(self,request,request_type,stream_details=None):
+        message_packet = None
+        validated_request = None
+        # Check points
+        if 'stream-'+request_type in self.schemas_dict:
+                
+            message_packet = {}
+            validated_request = {}
+            
+            try:
+                # Check
+                validated_request = \
+                    self.schemas_dict['stream-'+request_type].validate(
+                        request
+                    )
+                    
+                message_packet['stream-schema-message'] = 'Valid stream '+request_type+' request found'
+                message_packet['stream-valid-request'] = True
+                message_packet['stream-code'] = 200
             
             except SchemaError as e:
                 # Points level error.
-                message['points-schema-error'] = e.get_last_error()  
+                message_packet['stream-schema-error'] = e.get_last_error()
+                message_packet['stream-valid-request'] = False
+                message_packet['stream-code'] = 400
+        else:
+            message_packet = {}
+            message_packet['stream-schema-error'] = 'Invalid Stream Request'
+            message_packet['stream-valid-request'] = False
+            message_packet['stream-code'] = 400
+            
+        return validated_request, message_packet
+        
+    # Try to validate the object request
+    def validateObjectRequest(self,request,request_type,object_details=None):
+        message_packet = None
+        validated_request = None
+        # Check points
+        if 'object-'+request_type in self.schemas_dict:
                 
-        return message, validated_request
-    '''
-    
+            message_packet = {}
+            validated_request = {}
+            
+            try:
+                # Check
+                validated_request = \
+                    self.schemas_dict['object-'+request_type].validate(
+                        request
+                    )
+                    
+                message_packet['object-schema-message'] = 'Valid object '+request_type+' request found'
+                message_packet['object-valid-request'] = True
+                message_packet['object-code'] = 200
+            
+            except SchemaError as e:
+                # Points level error.
+                message_packet['object-schema-error'] = e.get_last_error()
+                message_packet['object-valid-request'] = False
+                message_packet['object-code'] = 400
+        else:
+            message_packet = {}
+            message_packet['object-schema-error'] = 'Invalid Object Request'
+            message_packet['object-valid-request'] = False
+            message_packet['object-code'] = 400
+            
+        return validated_request, message_packet
+        
+    # Try to validate the network request
+    def validateNetworkRequest(self,request,request_type,network_details=None):
+        message_packet = None
+        validated_request = None
+        # Check points
+        if 'network-'+request_type in self.schemas_dict:
+                
+            message_packet = {}
+            validated_request = {}
+            
+            try:
+                # Check
+                validated_request = \
+                    self.schemas_dict['network-'+request_type].validate(
+                        request
+                    )
+                    
+                message_packet['network-schema-message'] = 'Valid network '+request_type+' request found'
+                message_packet['network-valid-request'] = True
+                message_packet['network-code'] = 200
+            
+            except SchemaError as e:
+                # Points level error.
+                message_packet['network-schema-error'] = e.get_last_error()
+                message_packet['network-valid-request'] = False
+                message_packet['network-code'] = 400
+        else:
+            message_packet = {}
+            message_packet['network-schema-error'] = 'Invalid Network Request'
+            message_packet['network-valid-request'] = False
+            message_packet['network-code'] = 400
+            
+        return validated_request, message_packet
+        
+        
+        
+        
     # Try to validate the create request
-    def validateCreateRequest(self,request,verbose=False):           
-        return self.validateRequest(request,'create',verbose)
+    def validateMultipleCreateRequests(self,request,verbose=False):           
+        return self.validateMultipleRequests(request,'create',verbose)
 
     # Try to validate the read request
-    def validateReadRequest(self,request,verbose=False):
-        return self.validateRequest(request,'read',verbose)
+    def validateMultipleReadRequests(self,request,verbose=False):
+        return self.validateMultipleRequests(request,'read',verbose)
             
     # Try to validate the update request
-    def validateUpdateRequest(self,request,verbose=False):
-        return self.validateRequest(request,'update',verbose)
+    def validateMultipleUpdateRequests(self,request,verbose=False):
+        return self.validateMultipleRequests(request,'update',verbose)
             
     # Try to validate the update request
-    def validateDeleteRequest(self,request,verbose=False):
-        return self.validateRequest(request,'delete',verbose)
+    def validateMultipleDeleteRequests(self,request,verbose=False):
+        return self.validateMultipleRequests(request,'delete',verbose)
         
     # Try to validate the update request
-    def validateSearchRequest(self,request,verbose=False):
-        return self.validateRequest(request,'search',verbose)
+    def validateMultipleSearchRequests(self,request,verbose=False):
+        return self.validateMultipleRequests(request,'search',verbose)
         
     # Try to validate the request
-    def validateRequest(self,request,request_type,verbose=False):
+    # TODO: Use validateNetworkRequest, validateObjectRequest, etc.
+    def validateMultipleRequests(self,request,request_type,verbose=False):
         validated_request = {}
         message = {}
         if not verbose:
