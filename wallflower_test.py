@@ -278,8 +278,9 @@ points_request = {
     ]
 }
 valid = wp.loadPointsRequest(points_request, 'update')
+has = wp.hasPointsRequest()
 print "Check Points Update Packet:",
-if valid:
+if valid and has:
     print "OK"
 else:
     print "Error"
@@ -299,8 +300,9 @@ stream_request = {
     }
 }
 valid = wp.loadStreamRequest(stream_request, 'create')
+has = wp.hasStreamRequest()
 print "Check Stream Create Packet:", 
-if valid:
+if valid and has:
     print "OK"
 else:
     print "Error"
@@ -315,8 +317,9 @@ object_request = {
     },
 }
 valid = wp.loadObjectRequest(object_request, 'update')
+has = wp.hasObjectRequest()
 print "Check Object Update Packet:", 
-if valid:
+if valid and has:
     print "OK"
 else:
     print "Error"
@@ -331,8 +334,9 @@ network_request = {
     },
 }
 valid = wp.loadNetworkRequest(network_request, 'create')
+has = wp.hasNetworkRequest()
 print "Check Network Create Packet:", 
-if valid:
+if valid and has:
     print "OK"
 else:
     print "Error"
