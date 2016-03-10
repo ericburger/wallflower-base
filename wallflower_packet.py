@@ -25,7 +25,7 @@
 #
 #####################################################################################
 
-__version__ = '0.0.1'
+__version__ = '0.0.2'
 
 from wallflower_schema import WallflowerSchema
 import json
@@ -33,88 +33,16 @@ import copy
 
 class WallflowerPacketBase:
     
-    raw_packet = None
-    packet = None
-    validated_packet = None
-    schema_packet = None
+    raw_request = None
+    request = None
+    response = None
+    validated_request = None
+    validated_response = None
+    schema_request = None
+    schema_response = None
     request_list = []
     request_type = None
     request_level = None
-    
-    c_type_info = {
-        'b' : {
-            'c_type' : 'signed char',
-            'python_type' : int,
-            'standard_size' : 1
-        },
-        '?' : {
-            'c_type' : '_Bool',
-            'python_type' : bool,
-            'standard_size' : 1
-        },
-        'c' : {
-            'c_type' : 'char',
-            'python_type' : basestring,
-            'standard_size' : 1
-        },
-        's' : {
-            'c_type' : 'char[]',
-            'python_type' : basestring,
-            'standard_size' : 1
-        },
-        'B' : {
-            'c_type' : 'unsigned char',
-            'python_type' : int,
-            'standard_size' : 1
-        },
-        'h' : {
-            'c_type' : 'short',
-            'python_type' : int,
-            'standard_size' : 2
-        },
-        'H' : {
-            'c_type' : 'unsigned short',
-            'python_type' : int,
-            'standard_size' : 2
-        },
-        'i' : {
-            'c_type' : 'int',
-            'python_type' : int,
-            'standard_size' : 4
-        },
-        'I' : {
-            'c_type' : 'unsigned int',
-            'python_type' : int,
-            'standard_size' : 4
-        },
-        'f' : {
-            'c_type' : float,
-            'python_type' : float,
-            'standard_size' : 4
-        },
-        'q' : {
-            'c_type' : 'long long',
-            'python_type' : int,
-            'standard_size' : 8
-        },
-        'Q' : {
-            'c_type' : 'unsigned long long',
-            'python_type' : int,
-            'standard_size' : 8
-        },
-        'd' : {
-            'c_type' : 'double',
-            'python_type' : float,
-            'standard_size' : 8
-        }
-    }
-
-    def getPythonType(self,data_type):
-        if isinstance(data_type,basestring):
-            return self.c_type_info[data_type]['python_type']
-        elif isinstance(data_type,int):
-            return self.c_type_info[WallflowerSchema().data_type_list[data_type]]['python_type']
-        return int
         
         
 class WallflowerPacket(WallflowerPacketBase):
@@ -125,35 +53,87 @@ class WallflowerPacket(WallflowerPacketBase):
     def loadRequest(self,packet,request_type,request_level):
         try:
             # Store paclet
-            self.packet = packet
+            self.request = packet
             self.request_type = request_type
             self.request_level = request_level
             
-            if request_level == 'network':
+            if request_level == 'account':
                 # Validate packet contents
-                self.validated_packet, self.schema_packet = \
-                    WallflowerSchema().validateNetworkRequest(self.packet,request_type)
-                return self.schema_packet['network-valid-request']
+                self.validated_request, self.schema_request = \
+                    WallflowerSchema().validateAccountRequest(self.request,request_type)
+                return self.schema_request['account-valid-request']
+            elif request_level == 'network':
+                # Validate packet contents
+                self.validated_request, self.schema_request = \
+                    WallflowerSchema().validateNetworkRequest(self.request,request_type)
+                return self.schema_request['network-valid-request']
             elif request_level == 'object':
                 # Validate packet contents
-                self.validated_packet, self.schema_packet = \
-                    WallflowerSchema().validateObjectRequest(self.packet,request_type)
-                return self.schema_packet['object-valid-request']
+                self.validated_request, self.schema_request = \
+                    WallflowerSchema().validateObjectRequest(self.request,request_type)
+                return self.schema_request['object-valid-request']
             elif request_level == 'stream':
                 # Validate packet contents
-                self.validated_packet, self.schema_packet = \
-                    WallflowerSchema().validateStreamRequest(self.packet,request_type)
-                return self.schema_packet['stream-valid-request']
+                self.validated_request, self.schema_request = \
+                    WallflowerSchema().validateStreamRequest(self.request,request_type)
+                return self.schema_request['stream-valid-request']
             elif request_level == 'points':
                 # Validate packet contents
-                self.validated_packet, self.schema_packet = \
-                    WallflowerSchema().validatePointsRequest(self.packet,request_type)
-                return self.schema_packet['points-valid-request']
+                self.validated_request, self.schema_request = \
+                    WallflowerSchema().validatePointsRequest(self.request,request_type)
+                return self.schema_request['points-valid-request']
             else:
                 return False
         except:
             return False
     
+    '''
+    Check single response packet. Return False if there is an error.
+    '''
+    def checkResponse(self,packet,request_type,request_level):
+        try:
+            # Store paclet
+            self.response = packet
+            self.request_type = request_type
+            self.request_level = request_level
+            
+            if request_level == 'account':
+                # Validate packet contents
+                self.validated_response, self.schema_response = \
+                    WallflowerSchema().validateAccountResponse(self.response,request_type)
+                return self.schema_response['account-valid-response']
+            elif request_level == 'network':
+                # Validate packet contents
+                self.validated_response, self.schema_response = \
+                    WallflowerSchema().validateNetworkResponse(self.response,request_type)
+                return self.schema_response['network-valid-response']
+            elif request_level == 'object':
+                # Validate packet contents
+                self.validated_response, self.schema_response = \
+                    WallflowerSchema().validateObjectResponse(self.response,request_type)
+                return self.schema_response['object-valid-response']
+            elif request_level == 'stream':
+                # Validate packet contents
+                self.validated_response, self.schema_response = \
+                    WallflowerSchema().validateStreamResponse(self.response,request_type)
+                return self.schema_response['stream-valid-response']
+            elif request_level == 'points':
+                # Validate packet contents
+                self.validated_response, self.schema_response = \
+                    WallflowerSchema().validatePointsResponse(self.response,request_type)
+                return self.schema_response['points-valid-response']
+            else:
+                return False
+        except:
+            return False
+            
+            
+    '''
+    Load account packet. Return False if error or packet does not contain request.
+    '''
+    def loadAccountRequest(self,packet,request_type):
+        return self.loadRequest(packet,request_type,'account')
+        
     '''
     Load network packet. Return False if error or packet does not contain request.
     '''
@@ -182,12 +162,18 @@ class WallflowerPacket(WallflowerPacketBase):
     Check if the packet contains a valid request. 
     '''
     def hasRequest(self,request_level):
-        if request_level+'-valid-request' in self.schema_packet and \
-            self.schema_packet[request_level+'-valid-request']:
-            return True, self.validated_packet
+        if request_level+'-valid-request' in self.schema_request and \
+            self.schema_request[request_level+'-valid-request']:
+            return True, self.validated_request
         else:
-            return False, self.schema_packet
+            return False, self.schema_request
 
+    '''
+    Check if the packet contains a valid account request. 
+    '''
+    def hasAccountRequest(self):
+        return self.hasRequest('account')
+        
     '''
     Check if the packet contains a valid network request. 
     '''
@@ -213,7 +199,35 @@ class WallflowerPacket(WallflowerPacketBase):
         return self.hasRequest('points')
         
         
+    '''
+    Check account response. Return False if error or packet does not contain response.
+    '''
+    def checkAccountResponse(self,packet,request_type):
+        return self.checkResponse(packet,request_type,'account')
         
+    '''
+    Check network response. Return False if error or packet does not contain response.
+    '''
+    def checkNetworkResponse(self,packet,request_type):
+        return self.checkResponse(packet,request_type,'network')
+
+    '''
+    Check object response. Return False if error or packet does not contain response.
+    '''
+    def checkObjectResponse(self,packet,request_type):
+        return self.checkResponse(packet,request_type,'object')
+        
+    '''
+    Check stream response. Return False if error or packet does not contain response.
+    '''
+    def checkStreamResponse(self,packet,request_type):
+        return self.checkResponse(packet,request_type,'stream')
+        
+    '''
+    Check points response. Return False if error or packet does not contain response.
+    '''
+    def checkPointsResponse(self,packet,request_type):
+        return self.checkResponse(packet,request_type,'points')
         
         
         
@@ -235,7 +249,7 @@ class WallflowerMultiplePackets(WallflowerPacketBase):
             self.request_level = None
             
             # Validate packet contents
-            self.validated_packet, self.schema_packet = WallflowerSchema().validateMultipleRequests(self.packet,request_type,True)
+            self.validated_request, self.schema_request = WallflowerSchema().validateMultipleRequests(self.packet,request_type,True)
             
             return True
         except:
@@ -260,7 +274,7 @@ class WallflowerMultiplePackets(WallflowerPacketBase):
     Check if packet contains valid request. Only for multiple request packets.
     '''
     def hasAnyRequest(self):
-        if 'valid-request' in self.schema_packet and self.schema_packet['valid-request']:
+        if 'valid-request' in self.schema_request and self.schema_request['valid-request']:
             return True
         else:
             return False
@@ -287,7 +301,7 @@ class WallflowerMultiplePackets(WallflowerPacketBase):
     '''
     def getNetworkID(self):
         try:
-            return self.validated_packet['network-id']
+            return self.validated_request['network-id']
         except:
             return None
             
@@ -296,7 +310,7 @@ class WallflowerMultiplePackets(WallflowerPacketBase):
     '''
     def hasObjectIDs(self):
         try:
-            return (len(self.validated_packet['objects'])>0)
+            return (len(self.validated_request['objects'])>0)
         except:
             return False
             
@@ -305,7 +319,7 @@ class WallflowerMultiplePackets(WallflowerPacketBase):
     '''
     def getObjectIDs(self):
         try:
-            return self.validated_packet['objects'].keys()
+            return self.validated_request['objects'].keys()
         except:
             return []
             
@@ -314,7 +328,7 @@ class WallflowerMultiplePackets(WallflowerPacketBase):
     '''
     def hasStreamIDs(self,object_id):
         try:
-            return (len(self.validated_packet['objects'][object_id]['streams'])>0)
+            return (len(self.validated_request['objects'][object_id]['streams'])>0)
         except:
             return False
             
@@ -323,7 +337,7 @@ class WallflowerMultiplePackets(WallflowerPacketBase):
     '''
     def getStreamIDs(self,object_id):
         try:
-            return self.validated_packet['objects'][object_id]['streams'].keys()
+            return self.validated_request['objects'][object_id]['streams'].keys()
         except:
             return []
                         
@@ -335,19 +349,19 @@ class WallflowerMultiplePackets(WallflowerPacketBase):
         try:
             include = ()
             if self.request_type in ['create','update']:
-                assert 'network-details' in self.validated_packet
+                assert 'network-details' in self.validated_request
                 include = ('network-id', 'network-details')
-                return True, copy.deepcopy({k: self.validated_packet[k] for k in ('network-id', 'network-details')})
+                return True, copy.deepcopy({k: self.validated_request[k] for k in ('network-id', 'network-details')})
             elif self.request_type in ['read','delete','search']:
-                assert all(k not in self.validated_packet for k in ['network-details','objects'])
+                assert all(k not in self.validated_request for k in ['network-details','objects'])
                 include = ('network-id', )
                            
             #network_request = copy.deepcopy( 
-            #    {k: self.validated_packet[k] for k in include}
+            #    {k: self.validated_request[k] for k in include}
             #)
             # Create copy
             network_request = json.loads(json.dumps( 
-                {k: self.validated_packet[k] for k in include}
+                {k: self.validated_request[k] for k in include}
             ))
             
             return True, network_request
@@ -363,18 +377,18 @@ class WallflowerMultiplePackets(WallflowerPacketBase):
         try:
             include = ()
             if self.request_type in ['create','update']:
-                assert 'object-details' in self.validated_packet['objects'][object_id]
+                assert 'object-details' in self.validated_request['objects'][object_id]
                 include = ('object-id', 'object-details')
             elif self.request_type in ['read','delete','search']:
-                assert all(k not in self.validated_packet['objects'][object_id] for k in ['object-details','streams'])
+                assert all(k not in self.validated_request['objects'][object_id] for k in ['object-details','streams'])
                 include = ('object-id', )
 
             #object_request = copy.deepcopy( 
-            #    {k: self.validated_packet['objects'][object_id][k] for k in include}
+            #    {k: self.validated_request['objects'][object_id][k] for k in include}
             #)
             # Create copy
             object_request = json.loads(json.dumps( 
-                {k: self.validated_packet['objects'][object_id][k] for k in include}
+                {k: self.validated_request['objects'][object_id][k] for k in include}
             ))
             request= {
                     "network-id": network_id,
@@ -394,21 +408,21 @@ class WallflowerMultiplePackets(WallflowerPacketBase):
         try:
             include = ()
             if self.request_type in ['create']:
-                assert 'stream-details' in self.validated_packet['objects'][object_id]['streams'][stream_id]
+                assert 'stream-details' in self.validated_request['objects'][object_id]['streams'][stream_id]
                 include = ('stream-id', 'stream-details', 'points-details')
             elif self.request_type in ['update']:
-                assert 'stream-details' in self.validated_packet['objects'][object_id]['streams'][stream_id]
+                assert 'stream-details' in self.validated_request['objects'][object_id]['streams'][stream_id]
                 include = ('stream-id', 'stream-details')
             elif self.request_type in ['read','delete','search']:
-                assert all(k not in self.validated_packet['objects'][object_id]['streams'][stream_id] for k in ['stream-details','points'])
+                assert all(k not in self.validated_request['objects'][object_id]['streams'][stream_id] for k in ['stream-details','points'])
                 include = ('stream-id', )
                 
             #stream_request = copy.deepcopy( 
-            #    {k: self.validated_packet['objects'][object_id]['streams'][stream_id][k] for k in include}
+            #    {k: self.validated_request['objects'][object_id]['streams'][stream_id][k] for k in include}
             #)
             # Create copy
             stream_request = json.loads(json.dumps( 
-                {k: self.validated_packet['objects'][object_id]['streams'][stream_id][k] for k in include}
+                {k: self.validated_request['objects'][object_id]['streams'][stream_id][k] for k in include}
             ))
             request = {
                 "network-id": network_id,
@@ -434,11 +448,11 @@ class WallflowerMultiplePackets(WallflowerPacketBase):
         try:
             assert self.request_type in ['update','read','search']
             #points_request = copy.deepcopy( 
-            #    self.validated_packet['objects'][object_id]['streams'][stream_id]['points']
+            #    self.validated_request['objects'][object_id]['streams'][stream_id]['points']
             #)
             # Create copy
             points_request = json.loads(json.dumps( 
-                self.validated_packet['objects'][object_id]['streams'][stream_id]['points']
+                self.validated_request['objects'][object_id]['streams'][stream_id]['points']
             ))
             request = {
                 "network-id": network_id,
