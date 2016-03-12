@@ -1089,20 +1089,22 @@ class WallflowerSchema():
         message_packet = None
         validated_request = None
 
-            
         # Check points
         if 'points-'+request_type+'-request' in self.schemas_dict:
             
             message_packet = {}
             validated_request = {}
+
+            if request_type in ['read'] and 'points' not in request:
+                request['points'] = []
             
             try:                
                 # Check
+                assert 'points' in request, "Missing 'points'"
                 validated_request['points'] = \
                     self.schemas_dict['points-'+request_type+'-request'].validate(
                         request['points']
                     )
-                
                 # Additional checks for type agreement
                 if points_details is not None and request_type == 'update':
                     python_type = getPythonType(points_details['points-type'])
@@ -1173,6 +1175,12 @@ class WallflowerSchema():
             except SchemaError as e:
                 # Points level error.
                 message_packet['points-schema-error'] = e.get_last_error()
+                message_packet['points-valid-request'] = False
+                message_packet['points-code'] = 400
+            except:
+                # Points level error.
+                message_packet = {}
+                message_packet['points-schema-error'] = 'Invalid Points Request'
                 message_packet['points-valid-request'] = False
                 message_packet['points-code'] = 400
         else:
@@ -1254,6 +1262,11 @@ class WallflowerSchema():
                 message_packet['stream-schema-error'] = e.get_last_error()
                 message_packet['stream-valid-request'] = False
                 message_packet['stream-code'] = 400
+            except:
+                message_packet = {}
+                message_packet['stream-schema-error'] = 'Invalid Stream Request'
+                message_packet['stream-valid-request'] = False
+                message_packet['stream-code'] = 400
         else:
             message_packet = {}
             message_packet['stream-schema-error'] = 'Invalid Stream Request'
@@ -1286,6 +1299,12 @@ class WallflowerSchema():
             except SchemaError as e:
                 # Points level error.
                 message_packet['object-schema-error'] = e.get_last_error()
+                message_packet['object-valid-request'] = False
+                message_packet['object-code'] = 400
+                
+            except:
+                message_packet = {}
+                message_packet['object-schema-error'] = 'Invalid Object Request'
                 message_packet['object-valid-request'] = False
                 message_packet['object-code'] = 400
         else:
@@ -1322,6 +1341,12 @@ class WallflowerSchema():
                 message_packet['network-schema-error'] = e.get_last_error()
                 message_packet['network-valid-request'] = False
                 message_packet['network-code'] = 400
+                
+            except:
+                message_packet = {}
+                message_packet['network-schema-error'] = 'Invalid Network Request'
+                message_packet['network-valid-request'] = False
+                message_packet['network-code'] = 400
         else:
             message_packet = {}
             message_packet['network-schema-error'] = 'Invalid Network Request'
@@ -1356,6 +1381,12 @@ class WallflowerSchema():
                 message_packet['account-schema-error'] = e.get_last_error()
                 message_packet['account-valid-request'] = False
                 message_packet['account-code'] = 400
+                
+            except:
+                message_packet = {}
+                message_packet['account-schema-error'] = 'Invalid Account Request'
+                message_packet['account-valid-request'] = False
+                message_packet['account-code'] = 400
         else:
             message_packet = {}
             message_packet['account-schema-error'] = 'Invalid Account Request'
@@ -1371,15 +1402,12 @@ class WallflowerSchema():
      
     # Try to validate the points response
     def validatePointsResponse(self,response,response_type,points_details=None):
-        message_packet = None
-        validated_response = None
+        message_packet = {}
+        validated_response = {}
         
         # TODO: Check all response types
         if response_type in ['read']:
             if 'points-'+response_type+'-response' in self.schemas_dict:
-                    
-                message_packet = {}
-                validated_response = {}
                 
                 try:
                     # Check
@@ -1413,15 +1441,12 @@ class WallflowerSchema():
         
     # Try to validate the stream response
     def validateStreamResponse(self,response,response_type,stream_details=None):
-        message_packet = None
-        validated_response = None
+        message_packet = {}
+        validated_response = {}
         
         # TODO: Check all response types
         if response_type in ['read']:
             if 'stream-'+response_type+'-response' in self.schemas_dict:
-                    
-                message_packet = {}
-                validated_response = {}
                 
                 try:
                     # Check
@@ -1455,15 +1480,12 @@ class WallflowerSchema():
         
     # Try to validate the object response
     def validateObjectResponse(self,response,response_type,object_details=None):
-        message_packet = None
-        validated_response = None
+        message_packet = {}
+        validated_response = {}
         
         # TODO: Check all response types
         if response_type in ['read']:
             if 'object-'+response_type+'-response' in self.schemas_dict:
-                    
-                message_packet = {}
-                validated_response = {}
                 
                 try:
                     # Check
@@ -1497,15 +1519,12 @@ class WallflowerSchema():
         
     # Try to validate the network response
     def validateNetworkResponse(self,response,response_type,network_details=None):
-        message_packet = None
-        validated_response = None
+        message_packet = {}
+        validated_response = {}
         
         # TODO: Check all response types
         if response_type in ['read']:
             if 'network-'+response_type+'-response' in self.schemas_dict:
-                    
-                message_packet = {}
-                validated_response = {}
                 
                 try:
                     # Check
@@ -1539,15 +1558,12 @@ class WallflowerSchema():
         
     # Try to validate the account response
     def validateAccountResponse(self,response,response_type,account_details=None):
-        message_packet = None
-        validated_response = None
+        message_packet = {}
+        validated_response = {}
         
         # TODO: Check all response types
         if response_type in ['read']:
             if 'account-'+response_type+'-response' in self.schemas_dict:
-                    
-                message_packet = {}
-                validated_response = {}
                 
                 try:
                     # Check
