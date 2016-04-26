@@ -942,15 +942,28 @@ class WallflowerSchema():
         'stream-id': basestring,
     }, error = 'Invalid stream delete request')
     
+    points_delete_request = Schema({
+        Optional('after'): And(
+            basestring,
+            Timestamp(datetime_format_full)
+        ),
+        Optional('before'): And(
+            basestring,
+            Timestamp(datetime_format_full)
+        ),
+        Optional('except'): int
+    }, error = 'Invalid points delete request')
+    
     delete_request = Schema({
         'network-id': basestring,
         Optional('objects'): Schema({
             basestring: {   
                 'object-id': basestring,
                 Optional('streams'):  {
-                    basestring:{ 
+                    basestring: Schema({ 
                         'stream-id': basestring,
-                    }
+                        Optional('points'): points_delete_request
+                    }, error="No stream or point search request(s) found")
                 }
             }
         }, error="No object or stream delete request(s) found") 
@@ -978,17 +991,11 @@ class WallflowerSchema():
     points_search_request = Schema({
         Optional('start'): And(
             basestring,
-            Or(
-                Timestamp(datetime_format_full),
-                Timestamp(datetime_format_min)
-            )
+            Timestamp(datetime_format_full)
         ),
         Optional('end'): And(
             basestring,
-            Or(
-                Timestamp(datetime_format_full),
-                Timestamp(datetime_format_min)
-            )
+            Timestamp(datetime_format_full)
         ),
         Optional('limit'): And(int,LowerUpperBound(0,read_hard_limit))
     }, error = 'Invalid points search request')
@@ -1044,6 +1051,7 @@ class WallflowerSchema():
         'network-delete-request': network_delete_request,
         'object-delete-request': object_delete_request,
         'stream-delete-request': stream_delete_request,
+        'points-delete-request': points_delete_request,
         
         'search-request': search_request,
         'network-search-request': network_search_request,
@@ -1158,8 +1166,21 @@ class WallflowerSchema():
  
                 # TODO: add list support
 
-                # Check start/end
+                # Check delete
+                if request_type == 'delete':
+                    # Check before/after
+                    if 'after' in request['points'] and 'before' in request['points']:
+                        after = datetime.datetime.strptime( request['points']['after'], self.datetime_format_full )
+                        before = datetime.datetime.strptime( request['points']['before'], self.datetime_format_full )
+                        if after > before:
+                            validated_request = {}
+                            raise SchemaError(
+                                "Delete after time should precede the before time", []
+                                )
+                                
+                # Check search
                 if request_type == 'search':
+                    # Check start/end
                     if 'start' in request['points'] and 'end' in request['points']:
                         start = datetime.datetime.strptime( request['points']['start'], self.datetime_format_full )
                         end = datetime.datetime.strptime( request['points']['end'], self.datetime_format_full )
@@ -1168,6 +1189,7 @@ class WallflowerSchema():
                             raise SchemaError(
                                 "Search start time should come before the end time", []
                                 )
+                                
                 message_packet['points-schema-message'] = 'Valid points '+request_type+' request found'
                 message_packet['points-valid-request'] = True                                           
                 message_packet['points-code'] = 200 

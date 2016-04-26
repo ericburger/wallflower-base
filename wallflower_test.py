@@ -208,7 +208,81 @@ else:
 
 
 
+# Points Search Request
+points_request = {
+    'points': {
+        'except': 10,
+        'after': '2016-02-21T18:13:13.0Z',
+        'before': '2016-02-21T18:13:13.0Z'
+    }
+}
+points_details = {
+    'points-type': 's'
+}
+validated_request, message_packet = ws.validatePointsRequest(points_request,'delete',points_details)
+print "Check Points Delete Request:",
+if validated_request:
+    print "OK"
+else:
+    print "Error"
+    print message_packet
 
+# Points Search Request
+points_request = {
+    'points': {
+        'except': -1, # Will not raise error, just be filtered
+        'after': '2016-02-21T18:13:13.0Z',
+        'before': '2016-02-21T18:13:13.0Z'
+    }
+}
+points_details = {
+    'points-type': 's'
+}
+validated_request, message_packet = ws.validatePointsRequest(points_request,'delete',points_details)
+print "Check Points Delete Request with Invalid Except:",
+if validated_request:
+    print "OK"
+else:
+    print "Error"
+    print message_packet
+
+# Points Search Request
+points_request = {
+    'points': {
+        'after': '2016-02-20T18:13:13',
+        'before': '2016-02-21T18:13:13.0Z'
+    }
+}
+points_details = {
+    'points-type': 's'
+}
+validated_request, message_packet = ws.validatePointsRequest(points_request,'delete',points_details)
+print "Check Points Delete Request with Invalid Start:",
+if not validated_request:
+    print "OK"
+else:
+    print "Error"
+    print message_packet
+    
+# Points Search Request
+points_request = {
+    'points': {
+        'after': '2016-02-22T18:13:13.0Z',
+        'before': '2016-02-21T18:13:13.0Z'
+    }
+}
+points_details = {
+    'points-type': 's'
+}
+validated_request, message_packet = ws.validatePointsRequest(points_request,'delete',points_details)
+print "Check Points Delete Request with Invalid After/Before:",
+if not validated_request:
+    print "OK"
+else:
+    print "Error"
+    print message_packet
+    
+    
 
 # Points Search Request
 points_request = {
